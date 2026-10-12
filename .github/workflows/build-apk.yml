@@ -164,7 +164,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$GITHUB_WORKSPACE/overlay-diagnostics"
-          find "$PROJECT_DIR/app/src/main" -type f \\( -name '*.xml' -o -name '*.kt' \\) -print0 | while IFS= read -r -d '' f; do
+          find "$PROJECT_DIR/app/src/main" -type f \( -name '*.xml' -o -name '*.kt' \) -print0 | while IFS= read -r -d '' f; do
             case "$f" in
               */res/layout/*|*/res/values/*|*/java/*Overlay*|*/java/*overlay*|*/java/*Service*)
                 dest="$GITHUB_WORKSPACE/overlay-diagnostics/${f#"$PROJECT_DIR/app/src/main/"}"
