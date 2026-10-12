@@ -1,0 +1,58 @@
+name: Build APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract Android project archive if needed
+        shell: bash
+        run: |
+          if [ -f "PoolAimAssistant-fixed-project.zip" ]; then
+            mkdir -p /tmp/pool-project
+            unzip -o "PoolAimAssistant-fixed-project.zip" -d /tmp/pool-project
+            PROJECT_DIR="$(find /tmp/pool-project -type f \( -name 'settings.gradle' -o -name 'settings.gradle.kts' \) -printf '%h\n' | head -n 1)"
+            if [ -z "$PROJECT_DIR" ]; then
+              echo "Could not find Gradle Android project in ZIP"
+              find /tmp/pool-project -maxdepth 4 -type f | head -100
+              exit 1
+            fi
+            echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          else
+            echo "PROJECT_DIR=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+          fi
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build debug APK
+        shell: bash
+        run: |
+          cd "$PROJECT_DIR"
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+            ./gradlew --no-daemon assembleDebug
+          else
+            gradle --no-daemon assembleDebug
+          fi
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: pool-aim-assistant-debug-apk
+          path: |
+            **/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
