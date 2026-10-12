@@ -12,22 +12,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Extract Android project archive if needed
+      - name: Extract and locate Android project
         shell: bash
         run: |
-          if [ -f "PoolAimAssistant-fixed-project.zip" ]; then
+          set -euo pipefail
+          if [ -f "$GITHUB_WORKSPACE/PoolAimAssistant-fixed-project.zip" ]; then
             mkdir -p /tmp/pool-project
-            unzip -o "PoolAimAssistant-fixed-project.zip" -d /tmp/pool-project
-            PROJECT_DIR="$(find /tmp/pool-project -type f \( -name 'settings.gradle' -o -name 'settings.gradle.kts' \) -printf '%h\n' | head -n 1)"
-            if [ -z "$PROJECT_DIR" ]; then
-              echo "Could not find Gradle Android project in ZIP"
-              find /tmp/pool-project -maxdepth 4 -type f | head -100
-              exit 1
-            fi
-            echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+            unzip -oq "$GITHUB_WORKSPACE/PoolAimAssistant-fixed-project.zip" -d /tmp/pool-project
+            echo "Gradle settings files found:"
+            find /tmp/pool-project -type f \( -name settings.gradle -o -name settings.gradle.kts \) -print
+            PROJECT_DIR="$(find /tmp/pool-project -type f \( -name settings.gradle -o -name settings.gradle.kts \) -printf '%h\n' | head -n 1)"
           else
-            echo "PROJECT_DIR=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+            PROJECT_DIR="$GITHUB_WORKSPACE"
           fi
+          if [ -z "$PROJECT_DIR" ] || [ ! -d "$PROJECT_DIR" ]; then
+            echo "ERROR: Could not locate the Gradle project."
+            find /tmp/pool-project -maxdepth 5 -type f 2>/dev/null | head -150 || true
+            exit 1
+          fi
+          echo "Selected project directory: $PROJECT_DIR"
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Project files:"
+          find "$PROJECT_DIR" -maxdepth 3 -type f \( -name 'build.gradle' -o -name 'build.gradle.kts' -o -name 'gradlew' -o -name 'AndroidManifest.xml' \) -print
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -38,21 +44,42 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Inspect Gradle modules
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+          if [ -f ./gradlew ]; then
+            chmod +x ./gradlew
+            ./gradlew --no-daemon projects
+          else
+            gradle --no-daemon projects
+          fi
+
       - name: Build debug APK
         shell: bash
         run: |
+          set -euo pipefail
           cd "$PROJECT_DIR"
-          if [ -f "./gradlew" ]; then
-            chmod +x ./gradlew
+          if [ -f ./gradlew ]; then
             ./gradlew --no-daemon assembleDebug
           else
             gradle --no-daemon assembleDebug
+          fi
+          echo "APK files found after build:"
+          find "$PROJECT_DIR" -type f -name '*.apk' -print
+          mkdir -p "$GITHUB_WORKSPACE/apk-output"
+          find "$PROJECT_DIR" -type f -path '*/build/outputs/apk/*/*.apk' -exec cp -v {} "$GITHUB_WORKSPACE/apk-output/" \;
+          if ! find "$GITHUB_WORKSPACE/apk-output" -maxdepth 1 -type f -name '*.apk' | grep -q .; then
+            echo "ERROR: Gradle completed but produced no APK under build/outputs/apk."
+            echo "Available build output files:"
+            find "$PROJECT_DIR" -path '*/build/outputs/*' -type f -print | head -200
+            exit 1
           fi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: pool-aim-assistant-debug-apk
-          path: |
-            **/build/outputs/apk/debug/*.apk
+          path: apk-output/*.apk
           if-no-files-found: error
