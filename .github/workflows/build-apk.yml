@@ -159,6 +159,29 @@ jobs:
           fi
           ls -lh "$GITHUB_WORKSPACE/apk-output"
 
+      - name: Package overlay source diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/overlay-diagnostics"
+          find "$PROJECT_DIR/app/src/main" -type f \\( -name '*.xml' -o -name '*.kt' \\) -print0 | while IFS= read -r -d '' f; do
+            case "$f" in
+              */res/layout/*|*/res/values/*|*/java/*Overlay*|*/java/*overlay*|*/java/*Service*)
+                dest="$GITHUB_WORKSPACE/overlay-diagnostics/${f#"$PROJECT_DIR/app/src/main/"}"
+                mkdir -p "$(dirname "$dest")"
+                cp "$f" "$dest"
+                ;;
+            esac
+          done
+          find "$GITHUB_WORKSPACE/overlay-diagnostics" -type f -print
+
+      - name: Upload overlay source diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: overlay-source-diagnostics
+          path: overlay-diagnostics/
+          if-no-files-found: error
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
