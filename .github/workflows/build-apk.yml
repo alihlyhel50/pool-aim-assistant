@@ -96,6 +96,26 @@ jobs:
           print("Patched Android foreground-service compatibility and added visible service-start error reporting.")
           PY
 
+      - name: Fix overlay layout theme attribute crash
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          layout = Path(os.environ["PROJECT_DIR"]) / "app/src/main/res/layout/view_overlay_controls.xml"
+          if not layout.exists():
+              raise SystemExit(f"Required overlay layout not found: {layout}")
+          source = layout.read_text()
+          old = "?selectableItemBackgroundBorderless"
+          new = "?android:attr/selectableItemBackgroundBorderless"
+          count = source.count(old)
+          if count != 4:
+              raise SystemExit(f"Expected 4 overlay button background attributes, found {count}; refusing an uncertain patch.")
+          layout.write_text(source.replace(old, new))
+          print(f"Updated {count} overlay buttons to use the explicit Android framework ripple attribute.")
+          PY
+
       - name: Diagnose overlay layout inflation failure
         shell: bash
         run: |
