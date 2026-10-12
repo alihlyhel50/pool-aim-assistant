@@ -189,7 +189,7 @@ jobs:
                 stopSelf()
             },
             onShotOutcome = { success -> aimOverlayView?.recordShotOutcome(success) }
-        )"""
+              )"""
               if old not in s:
                   raise SystemExit("Overlay service constructor call not found; learning patch stopped safely.")
               s = s.replace(old, new, 1)
