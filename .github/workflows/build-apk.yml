@@ -46,49 +46,47 @@ jobs:
           source = project / "app/src/main/java/com/poolaim/assistant/service/OverlayAimService.kt"
           text = source.read_text()
           old = """        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(
-                NOTIFICATION_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-            )
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
-        }"""
+                      startForeground(
+                          NOTIFICATION_ID,
+                          notification,
+                          ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                      )
+                  } else {
+                      startForeground(NOTIFICATION_ID, notification)
+                  }"""
           new = """        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(
-                NOTIFICATION_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-            )
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
-        }"""
-          if old not in text:
-              raise SystemExit("Could not find foreground-service compatibility block; refusing to build an unpatched APK.")
+                      startForeground(
+                          NOTIFICATION_ID,
+                          notification,
+                          ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                      )
+                  } else {
+                      startForeground(NOTIFICATION_ID, notification)
+                  }"""
           if old not in text:
               raise SystemExit("Could not find foreground-service compatibility block; refusing to build an unpatched APK.")
           text = text.replace(old, new, 1)
 
           old_start = """            ACTION_START, null -> {
-                startForegroundWithNotification()
-                initOverlays()
-            }"""
+                          startForegroundWithNotification()
+                          initOverlays()
+                      }"""
           new_start = """            ACTION_START, null -> {
-                try {
-                    startForegroundWithNotification()
-                    initOverlays()
-                } catch (e: Exception) {
-                    android.util.Log.e("PoolAimAssistant", "Failed to start overlay service", e)
-                    android.widget.Toast.makeText(
-                        this,
-                        "Assistant error: ${e.javaClass.simpleName}: ${e.message}",
-                        android.widget.Toast.LENGTH_LONG
-                    ).show()
-                    stopForeground(STOP_FOREGROUND_REMOVE)
-                    stopSelf()
-                    return START_NOT_STICKY
-                }
-            }"""
+                          try {
+                              startForegroundWithNotification()
+                              initOverlays()
+                          } catch (e: Exception) {
+                              android.util.Log.e("PoolAimAssistant", "Failed to start overlay service", e)
+                              android.widget.Toast.makeText(
+                                  this,
+                                  "Assistant error: ${e.javaClass.simpleName}: ${e.message}",
+                                  android.widget.Toast.LENGTH_LONG
+                              ).show()
+                              stopForeground(STOP_FOREGROUND_REMOVE)
+                              stopSelf()
+                              return START_NOT_STICKY
+                          }
+                      }"""
           if old_start not in text:
               raise SystemExit("Could not find service-start block; refusing to build without crash diagnostics.")
           text = text.replace(old_start, new_start, 1)
