@@ -258,6 +258,77 @@ jobs:
               raise SystemExit("Expected cut-angle HUD anchor not found; refusing an uncertain patch.")
           PY
 
+      - name: Add built-in billiards practice guide to app UI
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          project = Path(os.environ["PROJECT_DIR"])
+          main = project / "app/src/main/res/layout/activity_main.xml"
+          source = main.read_text()
+          if "btnPracticeGuide" not in source:
+              button = '''
+              <Button
+                  android:id="@+id/btnPracticeGuide"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:layout_marginTop="10dp"
+                  android:text="Billiards Rules &amp; Practice Guide"
+                  android:backgroundTint="#0D9488" />
+          '''
+              if "</LinearLayout>" not in source:
+                  raise SystemExit("Main layout root changed; cannot safely add practice guide button.")
+              source = source.replace("</LinearLayout>", button + "\n</LinearLayout>", 1)
+              main.write_text(source)
+          candidates = list((project / "app/src/main/java").rglob("MainActivity.kt"))
+          if len(candidates) != 1:
+              raise SystemExit(f"Expected exactly one MainActivity.kt, found {len(candidates)}")
+          activity = candidates[0]
+          kotlin = activity.read_text()
+          if "btnPracticeGuide" not in kotlin:
+              anchor = "setContentView(R.layout.activity_main)"
+              if anchor not in kotlin:
+                  raise SystemExit("MainActivity setContentView anchor not found; refusing uncertain UI patch.")
+              injected = '''
+                  findViewById<android.widget.Button>(R.id.btnPracticeGuide).setOnClickListener {
+                      val guide = """
+          EIGHT-BALL BASICS
+          • Solids: balls 1–7. Stripes: balls 9–15. The 8-ball is black.
+          • After groups are assigned, contact your group first on a legal shot, following the game's break/open-table rules.
+          • A legal shot commonly requires a ball to be pocketed or a ball to contact a cushion after contact.
+          • Pocketing the 8-ball before clearing your group, or while fouling, commonly loses the rack. Rules vary by game and venue.
+          • A scratch (cue ball pocketed) is commonly a foul.
+
+          AIMING & GEOMETRY
+          • Aim line: direction from cue-ball center to the intended contact point.
+          • Ghost ball: imagine the cue-ball center at the contact location that sends the object ball toward the pocket.
+          • Smaller cut angles are generally easier, all else being equal.
+          • A simple bank-shot model reflects the angle at the cushion; speed, spin and cushion condition change real results.
+          • Longer paths are more sensitive to alignment and speed errors.
+
+          PRACTICE CHECKLIST
+          1. Mark the cue ball, target ball, intended pocket and cushion boundaries.
+          2. Practice straight shots, thin cuts and one-cushion banks separately.
+          3. Compare estimated routes with what happens, then recalibrate manually.
+          4. Treat the difficulty label as a geometry estimate, not a success probability.
+
+          LIMITATIONS
+          This overlay currently uses manually positioned markers. This guide does not mean automatic ball detection or screen capture is implemented. Screen capture must be started with Android's explicit permission, and detection must be validated against real screenshots.
+                      """.trimIndent()
+                      android.app.AlertDialog.Builder(this)
+                          .setTitle("Billiards Practice Guide")
+                          .setMessage(guide)
+                          .setPositiveButton("Close", null)
+                          .show()
+                  }
+          '''
+              kotlin = kotlin.replace(anchor, anchor + "\n" + injected, 1)
+              activity.write_text(kotlin)
+          print("Added an in-app rules and practice guide with an explicit limitations note.")
+          PY
+
       - name: Diagnose overlay layout inflation failure
         shell: bash
         run: |
