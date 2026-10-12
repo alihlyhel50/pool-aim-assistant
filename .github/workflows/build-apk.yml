@@ -116,6 +116,117 @@ jobs:
           print(f"Updated {count} overlay buttons to use the explicit Android framework ripple attribute.")
           PY
 
+      - name: Add persistent shot feedback and calibration learning
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          p = Path(os.environ["PROJECT_DIR"])
+          root = p / "app/src/main"
+          aim = root / "java/com/poolaim/assistant/overlay/AimOverlayView.kt"
+          controls = root / "java/com/poolaim/assistant/overlay/OverlayControlsView.kt"
+          service = root / "java/com/poolaim/assistant/service/OverlayAimService.kt"
+          layout = root / "res/layout/view_overlay_controls.xml"
+          a, c, s, x = aim.read_text(), controls.read_text(), service.read_text(), layout.read_text()
+          required = ["private var aimAngleRad = 0.0", "fun setTouchLocked(locked: Boolean)"]
+          if not all(v in a for v in required):
+              raise SystemExit("AimOverlayView structure differs; learning patch stopped safely.")
+          if "fun recordShotOutcome(success: Boolean)" not in a:
+              a = a.replace("    private var aimAngleRad = 0.0 // Radians", """    private var aimAngleRad = 0.0 // Radians
+
+              // User-confirmed outcomes are stored locally; no screenshots or gameplay data leave the device.
+              private val learningPrefs = context.getSharedPreferences("aim_learning", Context.MODE_PRIVATE)
+              private var learnedOffsetRad = learningPrefs.getFloat("learned_offset_rad", 0f).toDouble()
+              private var successfulShots = learningPrefs.getInt("successful_shots", 0)
+              private var missedShots = learningPrefs.getInt("missed_shots", 0)
+
+              private fun directAngle(): Double = atan2((targetY - cueY).toDouble(), (targetX - cueX).toDouble())
+              private fun wrapAngle(value: Double): Double {
+                  var angle = value
+                  while (angle > Math.PI) angle -= 2.0 * Math.PI
+                  while (angle < -Math.PI) angle += 2.0 * Math.PI
+                  return angle
+              }
+
+              fun recordShotOutcome(success: Boolean) {
+                  if (success) {
+                      val observed = wrapAngle(aimAngleRad - directAngle())
+                      val rate = 1.0 / min(10, successfulShots + 1)
+                      learnedOffsetRad = if (successfulShots == 0) observed else
+                          wrapAngle(learnedOffsetRad + wrapAngle(observed - learnedOffsetRad) * rate)
+                      successfulShots++
+                  } else {
+                      missedShots++
+                  }
+                  learningPrefs.edit()
+                      .putFloat("learned_offset_rad", learnedOffsetRad.toFloat())
+                      .putInt("successful_shots", successfulShots)
+                      .putInt("missed_shots", missedShots)
+                      .apply()
+                  val message = if (success) "Saved calibration · $successfulShots successful" else "Miss recorded · $missedShots missed"
+                  android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+                  invalidate()
+              }
+
+              fun learningSummary(): String = "Calibration %.2f° · %d successful / %d missed".format(
+                  Math.toDegrees(learnedOffsetRad), successfulShots, missedShots
+              )""", 1)
+              a = a.replace("aimAngleRad = atan2((targetY - cueY).toDouble(), (targetX - cueX).toDouble())", "aimAngleRad = wrapAngle(directAngle() + learnedOffsetRad)", 1)
+              a = a.replace("                        targetY = y\n                    }", "                        targetY = y\n                        aimAngleRad = wrapAngle(directAngle() + learnedOffsetRad)\n                    }", 1)
+              aim.write_text(a)
+          if "onShotOutcome" not in c:
+              c = c.replace("    private val onCloseRequested: () -> Unit\n", "    private val onCloseRequested: () -> Unit,\n    private val onShotOutcome: (Boolean) -> Unit\n", 1)
+              c = c.replace("        closeBtn = findViewById(R.id.btnCloseOverlay)\n", "        closeBtn = findViewById(R.id.btnCloseOverlay)\n        findViewById<android.widget.Button>(R.id.btnShotSuccess).setOnClickListener { onShotOutcome(true) }\n        findViewById<android.widget.Button>(R.id.btnShotMiss).setOnClickListener { onShotOutcome(false) }\n", 1)
+              controls.write_text(c)
+          if "onShotOutcome = { success" not in s:
+              old = """            onCloseRequested = {
+                stopSelf()
+            }
+        )"""
+              new = """            onCloseRequested = {
+                stopSelf()
+            },
+            onShotOutcome = { success -> aimOverlayView?.recordShotOutcome(success) }
+        )"""
+              if old not in s:
+                  raise SystemExit("Overlay service constructor call not found; learning patch stopped safely.")
+              s = s.replace(old, new, 1)
+              service.write_text(s)
+          if "btnShotSuccess" not in x:
+              old = '''        <ImageButton
+            android:id="@+id/btnCloseOverlay"'''
+              new = '''        <Button
+            android:id="@+id/btnShotSuccess"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:minWidth="0dp"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:text="HIT"
+            android:textSize="11sp"
+            android:contentDescription="Record a successful shot" />
+
+        <Button
+            android:id="@+id/btnShotMiss"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:minWidth="0dp"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:text="MISS"
+            android:textSize="11sp"
+            android:contentDescription="Record a missed shot" />
+
+        <ImageButton
+            android:id="@+id/btnCloseOverlay"'''
+              if old not in x:
+                  raise SystemExit("Overlay close button XML anchor not found; learning patch stopped safely.")
+              layout.write_text(x.replace(old, new, 1))
+          print("Shot feedback and locally persisted successful-shot calibration are installed.")
+          PY
+
       - name: Diagnose overlay layout inflation failure
         shell: bash
         run: |
