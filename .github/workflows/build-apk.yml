@@ -208,7 +208,7 @@ jobs:
             android:textSize="11sp"
             android:contentDescription="Record a successful shot" />
 
-        <Button
+              <Button
             android:id="@+id/btnShotMiss"
             android:layout_width="wrap_content"
             android:layout_height="40dp"
@@ -219,7 +219,7 @@ jobs:
             android:textSize="11sp"
             android:contentDescription="Record a missed shot" />
 
-        <ImageButton
+              <ImageButton
             android:id="@+id/btnCloseOverlay"'''
               if old not in x:
                   raise SystemExit("Overlay close button XML anchor not found; learning patch stopped safely.")
