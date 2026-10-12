@@ -222,6 +222,42 @@ jobs:
           print("Shot feedback and locally persisted calibration are installed; overlay touch-through is enabled by default.")
           PY
 
+      - name: Add shot difficulty guidance to the overlay HUD
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          source = Path(os.environ["PROJECT_DIR"]) / "app/src/main/java/com/poolaim/assistant/overlay/AimOverlayView.kt"
+          text = source.read_text()
+          old = '            val cutAngleText = String.format("Cut: %.1f°", result.cutAngleDeg)\n            canvas.drawText(cutAngleText, targetX - 50f, targetY - ballRadius - 15f, textPaint)'
+          new = '''            val cutAngle = abs(result.cutAngleDeg)
+                      .coerceIn(0.0, 180.0)
+                  val difficulty = when {
+                      cutAngle < 12.0 -> "STRAIGHT"
+                      cutAngle < 30.0 -> "EASY"
+                      cutAngle < 55.0 -> "MEDIUM"
+                      else -> "HARD"
+                  }
+                  val shotDistance = hypot(
+                      (targetX - cueX).toDouble(),
+                      (targetY - cueY).toDouble()
+                  )
+                  val cutAngleText = String.format(
+                      "Cut %.1f° · %s · Dist %.0fpx",
+                      result.cutAngleDeg, difficulty, shotDistance
+                  )
+                  canvas.drawText(cutAngleText, targetX - 50f, targetY - ballRadius - 15f, textPaint)'''
+          if old in text:
+              source.write_text(text.replace(old, new, 1))
+              print("Added a transparent geometry-based difficulty hint to the HUD.")
+          elif 'Dist %.0fpx' in text:
+              print("Shot difficulty HUD already exists; no change needed.")
+          else:
+              raise SystemExit("Expected cut-angle HUD anchor not found; refusing an uncertain patch.")
+          PY
+
       - name: Diagnose overlay layout inflation failure
         shell: bash
         run: |
