@@ -181,18 +181,12 @@ jobs:
               c = c.replace("        closeBtn = findViewById(R.id.btnCloseOverlay)\n", "        closeBtn = findViewById(R.id.btnCloseOverlay)\n        findViewById<android.widget.Button>(R.id.btnShotSuccess).setOnClickListener { onShotOutcome(true) }\n        findViewById<android.widget.Button>(R.id.btnShotMiss).setOnClickListener { onShotOutcome(false) }\n", 1)
               controls.write_text(c)
           if "onShotOutcome = { success" not in s:
-              old = """            onCloseRequested = {
-                stopSelf()
-            }
-              )"""
-              new = """            onCloseRequested = {
-                stopSelf()
-            },
-            onShotOutcome = { success -> aimOverlayView?.recordShotOutcome(success) }
-              )"""
-              if old not in s:
-                  raise SystemExit("Overlay service constructor call not found; learning patch stopped safely.")
-              s = s.replace(old, new, 1)
+              import re
+              pattern = r"onCloseRequested\\s*=\\s*\\{\\s*stopSelf\\(\\)\\s*\\}\\s*\\)"
+              new_service = "onCloseRequested = {\\n                stopSelf()\\n            },\\n            onShotOutcome = { success -> aimOverlayView?.recordShotOutcome(success) }\\n        )"
+              s, count = re.subn(pattern, lambda _: new_service, s, count=1)
+              if count != 1:
+                  raise SystemExit("Overlay service close callback not found; learning patch stopped safely.")
               service.write_text(s)
           if "btnShotSuccess" not in x:
               old = '''        <ImageButton
