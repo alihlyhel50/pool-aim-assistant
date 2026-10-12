@@ -182,8 +182,8 @@ jobs:
               controls.write_text(c)
           if "onShotOutcome = { success" not in s:
               import re
-              pattern = r"onCloseRequested\\s*=\\s*\\{\\s*stopSelf\\(\\)\\s*\\}\\s*\\)"
-              new_service = "onCloseRequested = {\\n                stopSelf()\\n            },\\n            onShotOutcome = { success -> aimOverlayView?.recordShotOutcome(success) }\\n        )"
+              pattern = r"onCloseRequested\s*=\s*\{\s*stopSelf\(\)\s*\}\s*\)"
+              new_service = "onCloseRequested = {\n                stopSelf()\n            },\n            onShotOutcome = { success -> aimOverlayView?.recordShotOutcome(success) }\n        )"
               s, count = re.subn(pattern, lambda _: new_service, s, count=1)
               if count != 1:
                   raise SystemExit("Overlay service close callback not found; learning patch stopped safely.")
