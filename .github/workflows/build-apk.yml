@@ -184,7 +184,7 @@ jobs:
               old = """            onCloseRequested = {
                 stopSelf()
             }
-        )"""
+              )"""
               new = """            onCloseRequested = {
                 stopSelf()
             },
