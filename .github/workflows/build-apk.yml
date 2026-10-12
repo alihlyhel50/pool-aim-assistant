@@ -96,6 +96,22 @@ jobs:
           print("Patched Android foreground-service compatibility and added visible service-start error reporting.")
           PY
 
+      - name: Diagnose overlay layout inflation failure
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "=== Overlay-related XML resources ==="
+          find "$PROJECT_DIR/app/src/main/res" -type f -name '*.xml' -print | sort
+          echo "=== Overlay controls layout with line numbers ==="
+          for f in "$PROJECT_DIR/app/src/main/res/layout/view_overlay_controls.xml" "$PROJECT_DIR/app/src/main/res/layout/view_overlay.xml"; do
+            if [ -f "$f" ]; then
+              echo "--- $f ---"
+              nl -ba "$f" | sed -n '1,100p'
+            fi
+          done
+          echo "=== Overlay controls Kotlin inflation calls ==="
+          grep -RInE 'inflate\(|view_overlay|OverlayControlsView|LayoutInflater' "$PROJECT_DIR/app/src/main/java" || true
+
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
