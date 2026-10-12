@@ -194,7 +194,32 @@ jobs:
               if old not in x:
                   raise SystemExit("Overlay close button XML anchor not found; learning patch stopped safely.")
               layout.write_text(x.replace(old, new, 1))
-          print("Shot feedback and locally persisted successful-shot calibration are installed.")
+          # Make the overlay pass touches through to the pool game by default.
+          # Users can explicitly unlock it from the floating bubble when repositioning is needed.
+          if "DEFAULT_TOUCH_PASSTHROUGH" not in s:
+              marker = "        windowManager.addView(aimOverlayView, aimParams)"
+              replacement = """        windowManager.addView(aimOverlayView, aimParams)
+        
+                // DEFAULT_TOUCH_PASSTHROUGH: the aiming layer must not swallow normal game taps.
+                aimParams.flags = aimParams.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                windowManager.updateViewLayout(aimOverlayView, aimParams)"""
+              if marker not in s:
+                  raise SystemExit("Overlay insertion point not found; refusing touch-pass-through patch.")
+              s = s.replace(marker, replacement, 1)
+              service.write_text(s)
+          if "DEFAULT_TOUCH_PASSTHROUGH" not in c:
+              marker = "        setupInteractions()"
+              replacement = """        setupInteractions()
+        
+                // Start locked so taps reach the game; unlock only for manual marker adjustment.
+                isLocked = true
+                lockBtn.setImageResource(R.drawable.ic_lock_closed)
+                onLockToggled(true)"""
+              if marker not in c:
+                  raise SystemExit("Controls initialization point not found; refusing touch-pass-through patch.")
+              c = c.replace(marker, replacement, 1)
+              controls.write_text(c)
+          print("Shot feedback and locally persisted calibration are installed; overlay touch-through is enabled by default.")
           PY
 
       - name: Diagnose overlay layout inflation failure
