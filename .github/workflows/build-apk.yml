@@ -190,7 +190,7 @@ jobs:
               service.write_text(s)
           if "btnShotSuccess" not in x:
               old = '        <ImageButton\n            android:id="@+id/btnCloseOverlay"'
-              new = '        <Button android:id="@+id/btnShotSuccess" android:layout_width="wrap_content" android:layout_height="40dp" android:minWidth="0dp" android:text="HIT" android:textSize="11sp" android:contentDescription="Record successful shot" />\n        <Button android:id="@+id/btnShotMiss" android:layout_width="wrap_content" android:layout_height="40dp" android:minWidth="0dp" android:text="MISS" android:textSize="11sp" android:contentDescription="Record missed shot" />\n        <ImageButton'
+              new = '        <Button android:id="@+id/btnShotSuccess" android:layout_width="wrap_content" android:layout_height="40dp" android:minWidth="0dp" android:text="HIT" android:textSize="11sp" android:contentDescription="Record successful shot" />\n        <Button android:id="@+id/btnShotMiss" android:layout_width="wrap_content" android:layout_height="40dp" android:minWidth="0dp" android:text="MISS" android:textSize="11sp" android:contentDescription="Record missed shot" />\n        <ImageButton android:id="@+id/btnCloseOverlay"'
               if old not in x:
                   raise SystemExit("Overlay close button XML anchor not found; learning patch stopped safely.")
               layout.write_text(x.replace(old, new, 1))
