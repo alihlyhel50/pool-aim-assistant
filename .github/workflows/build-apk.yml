@@ -329,6 +329,57 @@ jobs:
           print("Added an in-app rules and practice guide with an explicit limitations note.")
           PY
 
+      - name: Add original billiards table illustration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          project = Path(os.environ["PROJECT_DIR"])
+          drawable = project / "app/src/main/res/drawable"
+          drawable.mkdir(parents=True, exist_ok=True)
+          asset = drawable / "ic_billiards_practice.xml"
+          asset.write_text("""<?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="320dp" android:height="112dp"
+              android:viewportWidth="320" android:viewportHeight="112">
+              <path android:fillColor="#052E2B" android:pathData="M8,8 L312,8 L312,104 L8,104 Z"/>
+              <path android:fillColor="#0F766E" android:pathData="M20,18 L300,18 L300,94 L20,94 Z"/>
+              <path android:fillColor="#064E3B" android:pathData="M24,22 L296,22 L296,90 L24,90 Z"/>
+              <path android:fillColor="#020617" android:pathData="M13,13 m-5,0 a5,5 0,1 0,10 0 a5,5 0,1 0,-10 0 M160,13 m-5,0 a5,5 0,1 0,10 0 a5,5 0,1 0,-10 0 M307,13 m-5,0 a5,5 0,1 0,10 0 a5,5 0,1 0,-10 0 M13,99 m-5,0 a5,5 0,1 0,10 0 a5,5 0,1 0,-10 0 M160,99 m-5,0 a5,5 0,1 0,10 0 a5,5 0,1 0,-10 0 M307,99 m-5,0 a5,5 0,1 0,10 0 a5,5 0,1 0,-10 0"/>
+              <path android:fillColor="#F8FAFC" android:pathData="M67,56 m-9,0 a9,9 0,1 0,18 0 a9,9 0,1 0,-18 0"/>
+              <path android:fillColor="#F8FAFC" android:pathData="M67,56 m-3,-3 a3,3 0,1 0,6 0 a3,3 0,1 0,-6 0"/>
+              <path android:fillColor="#DC2626" android:pathData="M133,56 m-9,0 a9,9 0,1 0,18 0 a9,9 0,1 0,-18 0"/>
+              <path android:fillColor="#F8FAFC" android:pathData="M133,56 m-4,-4 a4,4 0,1 0,8 0 a4,4 0,1 0,-8 0"/>
+              <path android:fillColor="#FBBF24" android:pathData="M183,42 m-8,0 a8,8 0,1 0,16 0 a8,8 0,1 0,-16 0"/>
+              <path android:fillColor="#F8FAFC" android:pathData="M183,42 m-3,-3 a3,3 0,1 0,6 0 a3,3 0,1 0,-6 0"/>
+              <path android:fillColor="#2563EB" android:pathData="M220,66 m-9,0 a9,9 0,1 0,18 0 a9,9 0,1 0,-18 0"/>
+              <path android:fillColor="#F8FAFC" android:pathData="M220,66 m-4,-4 a4,4 0,1 0,8 0 a4,4 0,1 0,-8 0"/>
+              <path android:strokeColor="#F8FAFC" android:strokeWidth="1.5" android:strokeLineCap="round" android:pathData="M76,56 L122,56"/>
+              <path android:strokeColor="#F8FAFC" android:strokeWidth="1.5" android:pathData="M115,51 L122,56 L115,61"/>
+          </vector>
+          """)
+          layout = project / "app/src/main/res/layout/activity_main.xml"
+          xml = layout.read_text()
+          if "ivBilliardsPractice" not in xml:
+              anchor = '    <TextView\n        android:id="@+id/txtOverlayStatus"'
+              image = '''    <ImageView
+                  android:id="@+id/ivBilliardsPractice"
+                  android:layout_width="match_parent"
+                  android:layout_height="112dp"
+                  android:layout_marginTop="14dp"
+                  android:contentDescription="Illustration of billiards balls and a suggested path"
+                  android:scaleType="fitCenter"
+                  android:src="@drawable/ic_billiards_practice" />
+
+          '''
+              if anchor not in xml:
+                  raise SystemExit("Main layout status anchor missing; refusing to insert illustration.")
+              layout.write_text(xml.replace(anchor, image + anchor, 1))
+          print("Added an original vector table illustration and connected it to the main screen.")
+          PY
+
       - name: Diagnose overlay layout inflation failure
         shell: bash
         run: |
