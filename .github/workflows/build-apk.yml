@@ -35,6 +35,40 @@ jobs:
           echo "Project files:"
           find "$PROJECT_DIR" -maxdepth 3 -type f \( -name 'build.gradle' -o -name 'build.gradle.kts' -o -name 'gradlew' -o -name 'AndroidManifest.xml' \) -print
 
+      - name: Fix foreground service API compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          project = Path(os.environ["PROJECT_DIR"])
+          source = project / "app/src/main/java/com/poolaim/assistant/service/OverlayAimService.kt"
+          text = source.read_text()
+          old = """        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+              startForeground(
+                  NOTIFICATION_ID,
+                  notification,
+                  ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+              )
+          } else {
+              startForeground(NOTIFICATION_ID, notification)
+          }"""
+          new = """        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+              startForeground(
+                  NOTIFICATION_ID,
+                  notification,
+                  ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+              )
+          } else {
+              startForeground(NOTIFICATION_ID, notification)
+          }"""
+          if old not in text:
+              raise SystemExit("Could not find foreground-service compatibility block; refusing to build an unpatched APK.")
+          source.write_text(text.replace(old, new, 1))
+          print("Patched foreground-service type selection for Android API 26–35.")
+          PY
+
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
