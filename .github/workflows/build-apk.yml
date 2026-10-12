@@ -363,7 +363,7 @@ jobs:
           layout = project / "app/src/main/res/layout/activity_main.xml"
           xml = layout.read_text()
           if "ivBilliardsPractice" not in xml:
-              anchor = '    <TextView\n        android:id="@+id/txtOverlayStatus"'
+              anchor = '    <Button\n        android:id="@+id/btnPracticeGuide"'
               image = '''    <ImageView
                   android:id="@+id/ivBilliardsPractice"
                   android:layout_width="match_parent"
@@ -375,7 +375,7 @@ jobs:
 
           '''
               if anchor not in xml:
-                  raise SystemExit("Main layout status anchor missing; refusing to insert illustration.")
+                  raise SystemExit("Practice-guide button anchor missing; refusing to insert illustration.")
               layout.write_text(xml.replace(anchor, image + anchor, 1))
           print("Added an original vector table illustration and connected it to the main screen.")
           PY
