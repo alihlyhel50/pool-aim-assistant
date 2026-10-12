@@ -5,6 +5,9 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -12,7 +15,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Extract and locate Android project
+      - name: Extract Android project archive if needed
         shell: bash
         run: |
           set -euo pipefail
@@ -25,14 +28,13 @@ jobs:
           else
             PROJECT_DIR="$GITHUB_WORKSPACE"
           fi
-          if [ -z "$PROJECT_DIR" ] || [ ! -d "$PROJECT_DIR" ]; then
-            echo "ERROR: Could not locate the Gradle project."
+          if [ -z "${PROJECT_DIR:-}" ] || [ ! -d "$PROJECT_DIR" ]; then
+            echo "::error::Could not locate the Gradle project."
             find /tmp/pool-project -maxdepth 5 -type f 2>/dev/null | head -150 || true
             exit 1
           fi
-          echo "Selected project directory: $PROJECT_DIR"
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "Project files:"
+          echo "Selected project directory: $PROJECT_DIR"
           find "$PROJECT_DIR" -maxdepth 3 -type f \( -name 'build.gradle' -o -name 'build.gradle.kts' -o -name 'gradlew' -o -name 'AndroidManifest.xml' \) -print
 
       - name: Fix foreground service API compatibility
@@ -127,14 +129,19 @@ jobs:
           fi
           echo "APK files found after build:"
           find "$PROJECT_DIR" -type f -name '*.apk' -print
+
+      - name: Collect APK for upload
+        shell: bash
+        run: |
+          set -euo pipefail
           mkdir -p "$GITHUB_WORKSPACE/apk-output"
-          find "$PROJECT_DIR" -type f -path '*/build/outputs/apk/*/*.apk' -exec cp -v {} "$GITHUB_WORKSPACE/apk-output/" \;
+          find "$PROJECT_DIR" -type f -path '*/build/outputs/apk/*/*.apk' -print -exec cp -v {} "$GITHUB_WORKSPACE/apk-output/" \;
           if ! find "$GITHUB_WORKSPACE/apk-output" -maxdepth 1 -type f -name '*.apk' | grep -q .; then
-            echo "ERROR: Gradle completed but produced no APK under build/outputs/apk."
-            echo "Available build output files:"
+            echo "::error::Gradle did not produce an APK under build/outputs/apk."
             find "$PROJECT_DIR" -path '*/build/outputs/*' -type f -print | head -200
             exit 1
           fi
+          ls -lh "$GITHUB_WORKSPACE/apk-output"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
